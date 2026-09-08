@@ -3,7 +3,6 @@ x-app: &app
   build: .
   init: true
   restart: "no"
-  env_file: ./config/app.env
   environment: &app-env
     APP_HOST: "0.0.0.0"
     APP_PORT: "8080"
@@ -22,7 +21,7 @@ services:
     environment:
       POSTGRES_USER: barq_app
       POSTGRES_DB: barq_tasks
-      POSTGRES_PASSWORD: BarqLabOnly_7qN2vK8c
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     ports: ["127.0.0.1:15432:5432"]
     volumes:
       - postgres-data:/var/lib/postgresql/backup
@@ -56,7 +55,7 @@ services:
     container_name: app-02
     environment:
       <<: *app-env
-      INSTANCE_ID: "app-01"
+      INSTANCE_ID: "app-02"
   nginx:
     image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
     container_name: nginx
