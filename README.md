@@ -1,97 +1,392 @@
-<img src="assets/barq-logo.svg" alt="BARQ Systems" width="180">
+# BARQ Systems DevOps Assessment
 
-# DevOps Internship Task - Starter v2
+This repository contains the implementation, investigation evidence, validation
+scripts, failure testing, persistence testing, backup/restore procedures,
+security review, engineering decisions, and CI configuration for the BARQ
+Systems DevOps assessment.
 
-**Due date:** ____________________
+## Current verified environment
 
-**Time window:** 4 calendar days from the invitation email date/time.
+The currently verified environment contains:
 
-Read [the task](assessment/TASK.md), then [the API contract](assessment/APPLICATION.md).
-Everyone receives this same release. The environment is intentionally broken.
-Hidden issue types and count are not disclosed. Investigate this project; do not replace it.
+- NGINX as the only public entry point
+- Flask application instances `app-01` and `app-02`
+- PostgreSQL 16
+- Redis 7.4 with AOF persistence
+- Separate frontend and backend Docker networks
+- Internal backend network
+- PostgreSQL named-volume persistence
+- Redis named-volume persistence
+- Application readiness checks
+- Container health checks
+- Restart policies
+- Resource limits
+- Non-root application container
+- Pinned container image digests
+- No host ports for applications, PostgreSQL, or Redis
 
-## Included
+Current verified development endpoint:
 
-- Flask API, PostgreSQL, Redis, Docker and NGINX starter files.
-- Three historical logs, a question template and documentation templates.
-- App-only tests and a recorded challenge script.
-- Unimplemented validation, failure-test and backup/restore placeholders.
+    http://127.0.0.1:8080
 
-Use synthetic lab accounts/data only. Supplied values are for this disposable exercise,
-never for real services. Keep the lab on your local machine; do not expose it publicly.
+The final assessment video will demonstrate the required three-instance
+configuration on port 8090.
 
-## Before you start
+## Architecture
 
-- Linux or WSL2, Python 3.12, Git and Docker with Compose.
-- Docker Desktop must use Linux containers. Run shell scripts in Linux/WSL.
-- Suggested capacity: 2 CPU cores, 4 GB free RAM and 3 GB free disk, plus Docker overhead.
-- Internet for first downloads and GitHub. No cloud account or paid registry required.
-- Use a machine where container names app-01, app-02, nginx, postgres and redis are unused.
-  Do not delete someone else's containers to free those names.
-- Intended public port: 8080 before the video, 8090 after the live change.
-  If either is occupied, ask the organizer for a documented workstation exception.
+Current request flow:
+
+    Client
+      |
+      v
+    NGINX :80
+      |
+      +---- app-01:8080
+      |
+      +---- app-02:8080
+                  |
+                  +---- PostgreSQL :5432
+                  |
+                  +---- Redis :6379
+
+Networks:
+
+- frontend: NGINX and application containers
+- backend: application containers, PostgreSQL, and Redis
+- backend is an internal Docker network
+
+PostgreSQL and Redis do not expose host ports.
+
+See `docs/ARCHITECTURE.md` and the final `architecture.png` or
+`architecture.pdf`.
+
+## Repository structure
+
+    app/                    Flask application
+    database/               PostgreSQL initialization
+    nginx/                  NGINX configuration
+    logs/                   Original assessment logs
+    tests/                  Application tests
+    docs/                   Documentation and evidence
+    assessment/             Assessment material
+    assets/                 Assessment assets
+
+    docker-compose.yml      Docker Compose configuration
+    Dockerfile              Application image
+    requirements.txt        Python dependencies
+
+    validate.py             Environment validation
+    failure_test.py         Backend failure/recovery test
+    backup.sh               PostgreSQL backup
+    restore.sh              PostgreSQL restore
+    video_challenge.sh      Final live troubleshooting challenge
+
+    log_analysis.md         Correlated log analysis
+    troubleshooting.md      Investigation journal
+    decisions.md            Engineering decisions
+    security_review.md      Security review
+    AI_USAGE.md             AI/tool usage disclosure
+
+## Prerequisites
+
+Install or have available:
+
+- Ubuntu/Linux
+- Docker Engine
+- Docker Compose v2
+- Git
+- Python 3
+
+Verify:
+
+    git --version
+    docker version
+    docker compose version
+    python3 --version
+
+Docker commands may require `sudo` depending on local Docker permissions.
+
+## Configuration
+
+Create a local environment file:
+
+    cp .env.example .env
+
+Edit `.env` and set a local PostgreSQL password:
+
+    nano .env
+
+Example:
+
+    PUBLIC_PORT=8080
+    POSTGRES_PASSWORD=change-this-locally
+
+Never commit `.env` or real credentials.
+
+## Build
+
+    sudo docker compose build
 
 ## Start
 
-Clone the supplied Git bundle/repository. Keep both release commits and the v2 baseline tag.
-Set your own Git name/email before making changes.
+    sudo docker compose up -d
 
-From the repository root:
+Check the services:
 
-```bash
-git status
-git log -2 --oneline
-cp .env.example .env
-docker version
-docker compose version
-docker compose -p barq-assessment up --build -d
-docker compose -p barq-assessment ps -a
-docker compose -p barq-assessment logs --no-color
-```
+    sudo docker compose ps
 
-The initial environment is not expected to pass. Record what actually happens.
-The intended URL is http://127.0.0.1:8080; do not assume the starter configuration is correct.
+Wait until all required health checks report healthy.
 
-App-only checks use fake dependencies, not real SQL/Redis or Docker networking:
+## Stop
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
-```
+Stop containers:
 
-## Your work
+    sudo docker compose stop
 
-- Complete [assessment/TASK.md](assessment/TASK.md).
-- Implement validate.py, failure_test.py, backup.sh and restore.sh, or documented equivalents.
-  Placeholders deliberately exit 2; they are unfinished deliverables, not validation evidence.
-- Create .github/workflows/ci.yml yourself.
-- Complete the root report templates and docs/EVIDENCE_INDEX.md.
-- Add architecture.png or architecture.pdf.
-- Replace this README with copyable setup/build/run/test/failure/backup/restore/cleanup commands.
-- Commit as you work. Do not commit real secrets, backups, virtual environments or challenge state.
+Remove containers while preserving named volumes:
 
-## Recorded challenge
+    sudo docker compose down
 
-Use the supplied video_challenge.sh unchanged. Read its code if needed; do not run it early.
-After repairing the environment, run it once, for the first time in the video working copy,
-during the continuous 12-18 minute recording. The script requires healthy services, both
-initial instances and the target network layout. Preflight failures make no runtime changes.
+Do not use `docker compose down -v` during persistence testing because
+that removes the PostgreSQL and Redis named volumes.
 
-```bash
-./video_challenge.sh
-```
+## HTTP endpoints
 
-If you deliberately changed the project name, pass --project YOUR_PROJECT.
-An organizer-approved alternate local URL can be passed with --url http://127.0.0.1:PORT.
-The script touches only matching Compose-owned lab containers/networks.
-Keep the receipt in .assessment/challenge.json for the evidence index. Do not delete the
-one-run marker to retry. A local marker is not tamper-proof; ownership is judged from evidence.
-Do not use docker compose down to reset the runtime challenge.
+Required endpoints:
 
-## Stop safely
+    /
+    /health
+    /ready
+    /instance
+    /records
+    /counter
 
-Outside the recorded challenge, docker compose -p barq-assessment down stops this lab.
-Do not use --volumes during persistence tests. Avoid global Docker prune/cleanup commands.
-Back up anything you need before removing containers; investigate whether data actually persists.
+Test them:
+
+    curl -i http://127.0.0.1:8080/
+    curl -i http://127.0.0.1:8080/health
+    curl -i http://127.0.0.1:8080/ready
+    curl -i http://127.0.0.1:8080/instance
+    curl -i http://127.0.0.1:8080/records
+    curl -i http://127.0.0.1:8080/counter
+
+Repeated `/instance` requests demonstrate load balancing:
+
+    for i in {1..10}; do
+        curl -s http://127.0.0.1:8080/instance
+        echo
+    done
+
+## Automated validation
+
+Run:
+
+    ./validate.py
+
+The validator checks:
+
+- Container health
+- Public NGINX access
+- Required HTTP endpoints
+- Application readiness
+- PostgreSQL readiness
+- Redis readiness
+- Load balancing
+- Host port exposure
+- Network isolation
+- Internal backend network
+- PostgreSQL records
+- Redis counter
+
+The verified environment currently ends with:
+
+    === VALIDATION PASSED ===
+    All required checks passed.
+
+## Failure and recovery test
+
+Run:
+
+    ./failure_test.py
+
+The test:
+
+1. Measures baseline traffic.
+2. Stops `app-01`.
+3. Sends traffic through NGINX.
+4. Confirms `app-02` continues serving requests.
+5. Restores `app-01`.
+6. Waits for it to become healthy.
+7. Confirms traffic returns to both instances.
+
+The verified run achieved:
+
+    Baseline:       20/20 successful
+    During failure: 20/20 successful
+    Errors:          0/20
+    After recovery: 20/20 successful
+
+## PostgreSQL persistence
+
+Create a record:
+
+    curl -s -X POST http://127.0.0.1:8080/records \
+      -H 'Content-Type: application/json' \
+      -d '{"name":"CONTAINER_RECREATE_TEST","description":"Prove PostgreSQL data survives container recreation"}'
+
+Verify it:
+
+    curl -s http://127.0.0.1:8080/records
+
+PostgreSQL uses the named volume `postgres-data`.
+
+The persistence test recreates the PostgreSQL container while retaining the
+volume and verifies that the record survives.
+
+## PostgreSQL backup
+
+Run:
+
+    ./backup.sh
+
+Backups are written to:
+
+    backups/
+
+Generated backup files are ignored by Git.
+
+## PostgreSQL restore
+
+Usage:
+
+    ./restore.sh backups/<backup-file>.sql
+
+The restore script restores a compatible PostgreSQL dump into the target
+database. A clean full restore may require recreating the target database
+first.
+
+## Log investigation
+
+The original logs are preserved under:
+
+    logs/
+
+The investigation is documented in:
+
+    log_analysis.md
+
+The analysis covers:
+
+- Log validity
+- Status-code counts
+- Duplicate request IDs
+- NGINX retry behavior
+- Dependency failures
+- Upstream failures
+- Timeout incidents
+- Latency
+- Cross-log correlation
+- Timeline
+- Root-cause conclusions
+
+The original log files were not modified.
+
+## Troubleshooting journal
+
+Investigation steps, hypotheses, commands, failed attempts, fixes, and retests
+are documented in:
+
+    troubleshooting.md
+
+## Engineering decisions
+
+Engineering decisions, assumptions, alternatives, trade-offs, and limitations
+are documented in:
+
+    decisions.md
+
+## Security review
+
+The security review covers:
+
+- Secrets
+- Host ports
+- Container users
+- Image pinning
+- Docker networks
+- Persistence and backups
+- Logging
+- Availability
+- Resource limits
+
+See:
+
+    security_review.md
+
+Implemented fixes are separated from future recommendations.
+
+## CI
+
+The GitHub Actions workflow is:
+
+    .github/workflows/ci.yml
+
+The pipeline is intended to run on pushes and pull requests and performs:
+
+1. Checkout
+2. Python syntax checks
+3. Docker Compose configuration validation
+4. Image build
+5. Environment startup
+6. Readiness wait
+7. Full validation
+
+The final successful CI run will be recorded in the evidence index.
+
+## Final video challenge
+
+The assessment requires a live troubleshooting demonstration using:
+
+    ./video_challenge.sh
+
+The challenge must be run for the first time in the video working copy.
+
+The final demonstration will:
+
+- Diagnose and fix the injected runtime problem
+- Avoid `docker compose down`
+- Change the public port from 8080 to 8090
+- Add a third application instance
+- Demonstrate all three instances
+- Re-run validation
+- Show Git status and diffs
+- Show commit hashes
+- Push the final commits
+
+## Evidence
+
+Assessment evidence is tracked in:
+
+    docs/EVIDENCE_INDEX.md
+
+The evidence index maps requirements to repository files, commands,
+commits, validation evidence, and final video timestamps.
+
+## Cleanup
+
+To remove containers while preserving data:
+
+    sudo docker compose down
+
+To intentionally delete persistent data:
+
+    sudo docker compose down -v
+
+The second command is destructive to the PostgreSQL and Redis volumes.
+
+## Verification rule
+
+Only claim a fix when it has been reproduced and verified.
+
+Commands, failed attempts, test results, and conclusions used as assessment
+evidence are documented in the investigation and evidence files.
