@@ -17,9 +17,9 @@ trade-offs, evidence, and a production follow-up.
 * **Trade-off:** The slim image is smaller than the full image but still
   contains a Debian userspace. Alpine could be smaller, but native Python
   dependencies can have additional compatibility/build considerations.
-* **Evidence / commit:** `Dockerfile`; implementation present before the
-  documentation commit. The Dockerfile uses
-  `python:3.12-slim-bookworm@sha256:...`.
+* **Evidence / commit:** Inherited starter history — commit `2f1a548`
+  (`Initial assessment starter v1.0.0`) contains the pinned Python base
+  image. The current `Dockerfile` retains the same digest.
 * **Production improvement:** Build through a trusted CI pipeline, scan the
   image for vulnerabilities, rebuild regularly for security updates, and
   maintain a documented image update process.
@@ -35,8 +35,10 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Run the application as the default container user.
 * **Trade-off:** Non-root execution improves isolation but requires file
   ownership and permissions to be configured correctly during the image build.
-* **Evidence / commit:** `Dockerfile` creates the `app` user, copies application
-  files with `--chown=app:app`, and uses `USER app`.
+* **Evidence / commit:** Inherited starter history — commit `277170a`
+  (`Remove secrets from image and compose configuration`) changed the
+  container from `USER root` back to `USER app`. The current `Dockerfile`
+  creates UID/GID 10001, uses `--chown=app:app`, and retains `USER app`.
 * **Production improvement:** Use a read-only root filesystem where practical,
   drop unnecessary Linux capabilities, and verify the runtime security context
   with container security tooling.
@@ -54,9 +56,10 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Use one endpoint for both process and dependency status.
 * **Trade-off:** Two endpoints require slightly more implementation and testing,
   but provide clearer operational behavior.
-* **Evidence / commit:** `app/server.py`, `docker-compose.yml`,
-  `validate.py`, and the successful validation run in commit
-  `5ea6189 Implement environment validation`.
+* **Evidence / commit:** `app/server.py`, `docker-compose.yml`, and
+  `validate.py`. Inherited starter history includes commit `1e14073`
+  (`Fix application healthcheck endpoint`). The current validation run
+  also passed successfully.
 * **Production improvement:** Integrate readiness/liveness semantics with the
   orchestrator being used in production and expose dependency-specific
   monitoring and alerting.
@@ -73,8 +76,9 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Put every service on one Docker network.
 * **Trade-off:** Multiple networks require more configuration but provide a
   meaningful network isolation boundary.
-* **Evidence / commit:** `docker-compose.yml`; network hardening was included
-  in commit `2029857 Harden service dependencies and network isolation`.
+* **Evidence / commit:** `docker-compose.yml`. Inherited starter history —
+  commit `2676e2d` (`Harden service dependencies and network isolation`)
+  contains the network isolation changes.
 * **Production improvement:** Apply equivalent segmentation using production
   network policies, firewall rules, security groups, or Kubernetes NetworkPolicy
   depending on the deployment platform.
@@ -91,6 +95,9 @@ trade-offs, evidence, and a production follow-up.
 * **Trade-off:** Service-name DNS depends on the Docker networking environment,
   but avoids brittle IP management.
 * **Evidence / commit:** `docker-compose.yml` and `nginx/nginx.conf`.
+  Inherited starter history — commit `c8b3ea5` (`Configure app resources
+  and backend URLs`) contains the backend URL configuration. The current
+  NGINX configuration uses the `app-01` and `app-02` service names.
 * **Production improvement:** Use platform-native service discovery in
   production and monitor DNS/service-discovery failures.
 
@@ -109,10 +116,11 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Disable retries and rely entirely on client retries.
 * **Trade-off:** Retries can improve availability but may increase latency and
   can duplicate non-idempotent operations if configured incorrectly.
-* **Evidence / commit:** NGINX failover behavior and configuration were
-  improved in commit `796514e Improve NGINX upstream failover`. The failure
-  recovery test passed in commit
-  `d906c2b Implement backend failure recovery test`.
+* **Evidence / commit:** Inherited starter history — commit `8dd59bd`
+  (`Improve NGINX upstream failover`) contains the NGINX failover changes.
+  Commit `c3ec52d` (`Implement backend failure recovery test`) contains
+  the backend failure recovery test. The current failure test also passed
+  successfully.
 * **Production improvement:** Define retry budgets, distinguish idempotent from
   non-idempotent requests, add circuit breakers where appropriate, and monitor
   retry rates and tail latency.
@@ -130,9 +138,10 @@ trade-offs, evidence, and a production follow-up.
 * **Trade-off:** Limits improve containment but can cause failures if set below
   actual workload requirements.
 * **Evidence / commit:** Resource and restart configuration is present in
-  `docker-compose.yml`; resource configuration was introduced in
-  `2809883 Configure app resources and backend URLs`, while restart policies
-  were implemented in `3cff720 Set restart policies for all services`.
+  `docker-compose.yml`. Inherited starter history — resource configuration
+  was introduced in `c8b3ea5` (`Configure app resources and backend URLs`),
+  while restart policies were implemented in `5ebd71c` (`Set restart
+  policies for all services`).
 * **Production improvement:** Size limits from measured workload data and use
   production autoscaling/capacity management where appropriate.
 
@@ -148,9 +157,10 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Store database data only inside the container filesystem.
 * **Trade-off:** Named-volume persistence protects against container
   recreation but is not a substitute for backups or disaster recovery.
-* **Evidence / commit:** PostgreSQL persistence was implemented in
-  `6738918 Persist PostgreSQL data in named volume`. Container recreation was
-  subsequently tested and the test record remained available.
+* **Evidence / commit:** Inherited starter history — PostgreSQL persistence
+  was implemented in `411c5d9` (`Persist PostgreSQL data in named volume`).
+  Container recreation was subsequently tested and the test record remained
+  available.
 * **Production improvement:** Use managed PostgreSQL or replicated storage in
   production, with tested off-host backups and documented recovery objectives.
 
@@ -167,9 +177,9 @@ trade-offs, evidence, and a production follow-up.
   volume.
 * **Trade-off:** AOF improves persistence but adds disk I/O and does not by
   itself provide high availability.
-* **Evidence / commit:** AOF was enabled in `c6fc487 Enable Redis AOF
-  persistence`; named-volume persistence was added in
-  `04b95ad Persist Redis AOF in named volume`.
+* **Evidence / commit:** Inherited starter history — AOF was enabled in
+  commit `6d1b052` (`Enable Redis AOF persistence`); named-volume persistence
+  was added in `cb29b75` (`Persist Redis AOF in named volume`).
 * **Production improvement:** Use an HA Redis deployment or managed Redis
   service where required, define persistence/recovery objectives, and test
   failover and restore procedures.
@@ -187,9 +197,9 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Hard-code the password in Compose or the application source.
 * **Trade-off:** External secret injection requires environment setup, but
   avoids committing credentials.
-* **Evidence / commit:** Secret removal was implemented in
-  `791069c Remove secrets from image and compose configuration`. The
-  `.gitignore` also excludes `.env` and `config/app.env`.
+* **Evidence / commit:** Inherited starter history — secret removal was
+  implemented in `277170a` (`Remove secrets from image and compose
+  configuration`). The `.gitignore` also excludes `.env` and `config/app.env`.
 * **Production improvement:** Use a dedicated secret manager or platform
   secrets mechanism, rotate credentials, and avoid exposing secrets through
   process listings or logs.
@@ -206,10 +216,10 @@ trade-offs, evidence, and a production follow-up.
 * **Alternative:** Rely only on the Docker named volume.
 * **Trade-off:** Backup management adds operational steps, but provides a
   recoverable logical copy of the database.
-* **Evidence / commit:** `backup.sh` was implemented in
-  `f88b64a Implement PostgreSQL backup script` and `restore.sh` in
-  `c5cac8d Implement PostgreSQL restore script`. A backup/restore exercise was
-  also performed successfully.
+* **Evidence / commit:** Inherited starter history — `backup.sh` was
+  implemented in `2e656d1` (`Implement PostgreSQL backup script`) and
+  `restore.sh` in `ba5c523` (`Implement PostgreSQL restore script`). A
+  backup/restore exercise was also performed successfully.
 * **Production improvement:** Store backups off-host, encrypt them, rotate
   them, monitor backup success, and regularly perform automated restore
   tests.
