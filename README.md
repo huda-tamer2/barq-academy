@@ -232,7 +232,7 @@ Create a record:
 
     curl -s -X POST http://127.0.0.1:8080/records \
       -H 'Content-Type: application/json' \
-      -d '{"name":"CONTAINER_RECREATE_TEST","description":"Prove PostgreSQL data survives container recreation"}'
+      -d '{"title":"CONTAINER_RECREATE_TEST"}'
 
 Verify it:
 
