@@ -362,6 +362,11 @@ The final demonstration will:
 - Show Git status and diffs
 - Show commit hashes
 - Push the final commits
+## Final Assessment Video
+
+The final continuous assessment demonstration is available here:
+
+[Watch the final assessment video](https://drive.google.com/file/d/1hisZSOScIZgwcq83VuARYFEBLcUwiXPX/view?usp=sharing)
 
 ## Evidence
 
